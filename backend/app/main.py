@@ -12,9 +12,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# =========================
+# Pastas
+# =========================
 os.makedirs("uploads", exist_ok=True)
 
-app.mount("/media", StaticFiles(directory="uploads"), name="media")
+app.mount(
+    "/media",
+    StaticFiles(directory="uploads"),
+    name="media"
+)
+
+# =========================
+# CORS
+# =========================
+frontend_origin = os.getenv(
+    "FRONTEND_ORIGIN",
+    "https://zola-front-hbgt.vercel.app"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,21 +38,29 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
+        frontend_origin,
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# =========================
+# Rotas
+# =========================
 app.include_router(api_router)
 
-
+# =========================
+# Startup
+# =========================
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
     seed_database()
 
-
+# =========================
+# Healthcheck
+# =========================
 @app.get("/")
 def root():
     return {
