@@ -1,13 +1,16 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from app.core.config import settings
 
-DATABASE_URL = settings.DATABASE_URL
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+DATABASE_URL = os.environ["DATABASE_URL"]
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+print("DATABASE_URL_HOST =", DATABASE_URL.split("@")[-1], flush=True)
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
