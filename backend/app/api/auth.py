@@ -3,18 +3,18 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.models import User, Professional
-from app.schemas.schemas import UserCreate, LoginInput
+from app.schemas.schemas import UserCreate, LoginInput, Token
 from app.core.security import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register")
+@router.post("/register", response_model=Token)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     user_exists = db.query(User).filter(User.email == payload.email).first()
 
     if user_exists:
-        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+        raise HTTPException(status_code=400, detail="Este e-mail já está cadastrado.")
 
     user = User(
         name=payload.name,
