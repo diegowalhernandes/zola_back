@@ -3,13 +3,16 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import OperationalError
 from starlette import status
+import logging
 import os
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.session import Base, engine
-from app.db.seed import seed_database
+from app.db.seed import ensure_extra_categories, seed_database
+from app.db.migrate import run_migrations
 
 app = FastAPI(
     title="Zola Serviços API",
@@ -79,10 +82,24 @@ app.include_router(api_router)
 # =========================
 # Startup
 # =========================
+logger = logging.getLogger(__name__)
+
+
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
-    seed_database()
+    try:
+        Base.metadata.create_all(bind=engine)
+        run_migrations(engine)
+        seed_database()
+        ensure_extra_categories()
+    except OperationalError as exc:
+        db_target = settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else settings.DATABASE_URL
+        logger.error("Falha ao conectar no banco (%s): %s", db_target, exc)
+        raise RuntimeError(
+            "Não foi possível conectar ao banco de dados. "
+            "Para desenvolvimento local, use no .env: DATABASE_URL=sqlite:///./zola.db "
+            "(Supabase exige rede estável; senhas com $ precisam ser %24 na URL)."
+        ) from exc
 
 # =========================
 # Healthcheck

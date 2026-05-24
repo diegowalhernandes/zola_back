@@ -1,5 +1,5 @@
-from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from datetime import date, datetime
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 
@@ -47,10 +47,29 @@ class Professional(Base):
     image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    professional_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # diarista | baba | montador
+    job_specs: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    availability: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON semanal
 
     user = relationship("User", back_populates="professional_profile")
     category = relationship("Category", back_populates="professionals")
     reviews = relationship("Review", back_populates="professional")
+    appointments = relationship("Appointment", back_populates="professional")
+
+
+class Appointment(Base):
+    __tablename__ = "appointments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    professional_id: Mapped[int] = mapped_column(ForeignKey("professionals.id"), nullable=False)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    appointment_date: Mapped[date] = mapped_column(Date, nullable=False)
+    time_slot: Mapped[str] = mapped_column(String(10), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    professional = relationship("Professional", back_populates="appointments")
 
 
 class Review(Base):

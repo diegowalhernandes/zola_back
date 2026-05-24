@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -18,6 +19,14 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     role: str = Field(pattern="^(client|professional)$", default="client")
+    professional_type: str | None = Field(default=None, pattern="^(diarista|baba|montador)$")
+    category_id: int | None = None
+    city: str | None = None
+    state: str | None = Field(default=None, min_length=2, max_length=2)
+    title: str | None = None
+    description: str | None = None
+    price_from: float | None = None
+    job_specs: dict[str, Any] | None = None
 
 
 class UserPublic(BaseModel):
@@ -55,6 +64,9 @@ class ProfessionalOut(BaseModel):
     image: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+    professional_type: str | None = None
+    job_specs: dict[str, Any] | None = None
+    availability: dict[str, list[str]] | None = None
     user: UserPublic
     category: CategoryOut
 
@@ -81,6 +93,34 @@ class ProfessionalUpdate(BaseModel):
     price_from: float | None = None
     whatsapp: str | None = None
     image: str | None = None
+    professional_type: str | None = Field(default=None, pattern="^(diarista|baba|montador)$")
+    job_specs: dict[str, Any] | None = None
+    availability: dict[str, list[str]] | None = None
+
+
+class AppointmentCreate(BaseModel):
+    professional_id: int
+    appointment_date: date
+    time_slot: str = Field(min_length=4, max_length=10)
+    notes: str | None = None
+
+
+class AppointmentOut(BaseModel):
+    id: int
+    professional_id: int
+    client_id: int
+    appointment_date: date
+    time_slot: str
+    status: str
+    notes: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DayAvailability(BaseModel):
+    date: date
+    slots: list[str]
 
 
 class ReviewOut(BaseModel):

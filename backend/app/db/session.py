@@ -1,15 +1,21 @@
-import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+from app.core.config import settings
 
-print("DATABASE_URL_HOST =", DATABASE_URL.split("@")[-1], flush=True)
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-)
+def _engine_kwargs(database_url: str) -> dict:
+    if database_url.startswith("sqlite"):
+        return {
+            "connect_args": {"check_same_thread": False},
+        }
+    return {
+        "pool_pre_ping": True,
+        "connect_args": {"connect_timeout": 10},
+    }
+
+
+engine = create_engine(settings.DATABASE_URL, **_engine_kwargs(settings.DATABASE_URL))
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
