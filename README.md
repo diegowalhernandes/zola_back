@@ -79,10 +79,17 @@ email: cliente@zola.com
 senha: 123456
 ```
 
-Profissional:
+Profissional (diarista):
 
 ```txt
-email: profissional@zola.com
+email: diarista@zola.com
+senha: 123456
+```
+
+Profissional (babá):
+
+```txt
+email: baba@zola.com
 senha: 123456
 ```
 

@@ -47,7 +47,7 @@ class Professional(Base):
     image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    professional_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # diarista | baba | montador
+    professional_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # diarista | baba
     job_specs: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     availability: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON semanal
 

@@ -22,13 +22,11 @@ DEFAULT_AVAILABILITY = {
 TYPE_CATEGORY_NAMES = {
     "diarista": "Diarista",
     "baba": "Babá",
-    "montador": "Montador",
 }
 
 TYPE_LABELS = {
     "diarista": "Diarista",
     "baba": "Babá",
-    "montador": "Montador de móveis",
 }
 
 
@@ -59,7 +57,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Este e-mail já está cadastrado.")
 
     if payload.role == "professional" and not payload.professional_type:
-        raise HTTPException(status_code=400, detail="Informe o tipo: diarista, babá ou montador de móveis.")
+        raise HTTPException(status_code=400, detail="Informe o tipo: diarista ou babá.")
 
     user = User(
         name=payload.name,

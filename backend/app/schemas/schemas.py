@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     role: str = Field(pattern="^(client|professional)$", default="client")
-    professional_type: str | None = Field(default=None, pattern="^(diarista|baba|montador)$")
+    professional_type: str | None = Field(default=None, pattern="^(diarista|baba)$")
     category_id: int | None = None
     city: str | None = None
     state: str | None = Field(default=None, min_length=2, max_length=2)
@@ -93,7 +93,7 @@ class ProfessionalUpdate(BaseModel):
     price_from: float | None = None
     whatsapp: str | None = None
     image: str | None = None
-    professional_type: str | None = Field(default=None, pattern="^(diarista|baba|montador)$")
+    professional_type: str | None = Field(default=None, pattern="^(diarista|baba)$")
     job_specs: dict[str, Any] | None = None
     availability: dict[str, list[str]] | None = None
 
