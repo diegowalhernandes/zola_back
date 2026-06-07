@@ -15,7 +15,7 @@ def _engine_kwargs(database_url: str) -> dict:
     }
 
 
-engine = create_engine(settings.DATABASE_URL, **_engine_kwargs(settings.DATABASE_URL))
+engine = create_engine(settings.database_url, **_engine_kwargs(settings.database_url))
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

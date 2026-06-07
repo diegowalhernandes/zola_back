@@ -1,6 +1,16 @@
 from datetime import date, datetime
 from typing import Any
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.utils.text_normalize import (
+    normalize_city,
+    normalize_email,
+    normalize_free_text,
+    normalize_job_specs,
+    normalize_name,
+    normalize_professional_type,
+    normalize_state,
+)
 
 
 class Token(BaseModel):
@@ -12,6 +22,11 @@ class Token(BaseModel):
 class LoginInput(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_login_email(cls, value: str) -> str:
+        return normalize_email(str(value))
 
 
 class UserCreate(BaseModel):
@@ -27,6 +42,49 @@ class UserCreate(BaseModel):
     description: str | None = None
     price_from: float | None = None
     job_specs: dict[str, Any] | None = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_user_email(cls, value: str) -> str:
+        return normalize_email(str(value))
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_user_name(cls, value: str) -> str:
+        return normalize_name(str(value))
+
+    @field_validator("professional_type", mode="before")
+    @classmethod
+    def normalize_user_professional_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return normalize_professional_type(str(value))
+
+    @field_validator("city", mode="before")
+    @classmethod
+    def normalize_user_city(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_city(str(value))
+
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def normalize_user_profile_text(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_free_text(str(value))
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def normalize_user_state(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_state(str(value))
+
+    @field_validator("job_specs", mode="before")
+    @classmethod
+    def normalize_user_job_specs(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return normalize_job_specs(value)
 
 
 class UserPublic(BaseModel):
@@ -83,6 +141,21 @@ class ProfessionalCreate(BaseModel):
     whatsapp: str | None = None
     image: str | None = None
 
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def normalize_profile_text(cls, value: str) -> str:
+        return normalize_free_text(str(value))
+
+    @field_validator("city", mode="before")
+    @classmethod
+    def normalize_profile_city(cls, value: str) -> str:
+        return normalize_city(str(value))
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def normalize_profile_state(cls, value: str) -> str:
+        return normalize_state(str(value))
+
 
 class ProfessionalUpdate(BaseModel):
     category_id: int | None = None
@@ -97,12 +170,52 @@ class ProfessionalUpdate(BaseModel):
     job_specs: dict[str, Any] | None = None
     availability: dict[str, list[str]] | None = None
 
+    @field_validator("professional_type", mode="before")
+    @classmethod
+    def normalize_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return normalize_professional_type(str(value))
+
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def normalize_profile_text(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_free_text(str(value))
+
+    @field_validator("city", mode="before")
+    @classmethod
+    def normalize_profile_city(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_city(str(value))
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def normalize_profile_state(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_state(str(value))
+
+    @field_validator("job_specs", mode="before")
+    @classmethod
+    def normalize_specs(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        return normalize_job_specs(value)
+
 
 class AppointmentCreate(BaseModel):
     professional_id: int
     appointment_date: date
     time_slot: str = Field(min_length=4, max_length=10)
     notes: str | None = None
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def normalize_notes(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_free_text(str(value))
 
 
 class AppointmentOut(BaseModel):
@@ -140,6 +253,16 @@ class ReviewCreate(BaseModel):
     rating: int = Field(ge=1, le=5)
     comment: str
 
+    @field_validator("client_name", mode="before")
+    @classmethod
+    def normalize_client_name(cls, value: str) -> str:
+        return normalize_name(str(value))
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def normalize_comment(cls, value: str) -> str:
+        return normalize_free_text(str(value))
+
 
 class RequestCreate(BaseModel):
     category_id: int
@@ -148,6 +271,11 @@ class RequestCreate(BaseModel):
     description: str
     location: str
     budget: float | None = None
+
+    @field_validator("title", "description", "location", mode="before")
+    @classmethod
+    def normalize_request_text(cls, value: str) -> str:
+        return normalize_free_text(str(value))
 
 
 class RequestOut(BaseModel):
@@ -168,6 +296,11 @@ class RequestOut(BaseModel):
 class MessageCreate(BaseModel):
     request_id: int
     content: str
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        return normalize_free_text(str(value))
 
 
 class MessageOut(BaseModel):

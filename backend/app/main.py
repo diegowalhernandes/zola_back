@@ -93,13 +93,23 @@ def on_startup():
         seed_database()
         ensure_extra_categories()
     except OperationalError as exc:
-        db_target = settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else settings.DATABASE_URL
+        db_target = settings.database_url.split("@")[-1] if "@" in settings.database_url else settings.database_url
         logger.error("Falha ao conectar no banco (%s): %s", db_target, exc)
-        raise RuntimeError(
-            "Não foi possível conectar ao banco de dados. "
-            "Para desenvolvimento local, use no .env: DATABASE_URL=sqlite:///./zola.db "
-            "(Supabase exige rede estável; senhas com $ precisam ser %24 na URL)."
-        ) from exc
+        detail = str(exc).lower()
+        if "tenant/user" in detail or "enotfound" in detail:
+            hint = (
+                "Supabase rejeitou o usuário do pooler (tenant/user not found). "
+                "No painel Supabase → Project Settings → Database, copie de novo a URI "
+                "(Transaction pooler, porta 6543). Confirme que o projeto não está pausado, "
+                "que o usuário é postgres.SEU_PROJECT_REF e que a senha na URL está correta "
+                "(caracteres especiais: $ → %24). Use postgresql+psycopg:// no início."
+            )
+        else:
+            hint = (
+                "Verifique DATABASE_URL no Render. Local: sqlite:///./zola.db. "
+                "Senhas com $ na URL precisam ser %24."
+            )
+        raise RuntimeError(f"Não foi possível conectar ao banco de dados. {hint}") from exc
 
 # =========================
 # Healthcheck
