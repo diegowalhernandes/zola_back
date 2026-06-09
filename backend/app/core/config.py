@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     FRONTEND_ORIGIN: str
     PUBLIC_API_BASE_URL: str = "http://localhost:8000"
 
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "zola-uploads"
+
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
@@ -44,6 +48,14 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         return normalize_database_url(self.DATABASE_URL)
+
+    @property
+    def public_api_base_url(self) -> str:
+        return self.PUBLIC_API_BASE_URL.strip().rstrip("/")
+
+    @property
+    def supabase_storage_configured(self) -> bool:
+        return bool(self.SUPABASE_URL.strip() and self.SUPABASE_SERVICE_ROLE_KEY.strip())
 
 
 settings = Settings()

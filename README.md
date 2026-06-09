@@ -160,3 +160,20 @@ DATABASE_URL=postgresql+psycopg://usuario:senha@localhost:5432/zola
 ```
 
 Nesse caso, instale também o driver PostgreSQL.
+
+## Upload de imagens (produção)
+
+No **Render**, o disco é **temporário**: arquivos em `uploads/` somem no redeploy. Use **Supabase Storage**:
+
+1. Supabase → **Storage** → **New bucket** → `zola-uploads` → marque **Public**
+2. **Project Settings → API** → copie **Project URL** e **service_role** key
+3. No Render, adicione:
+
+```txt
+PUBLIC_API_BASE_URL=https://zola-back.onrender.com
+SUPABASE_URL=https://SEU_PROJECT_REF.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
+SUPABASE_STORAGE_BUCKET=zola-uploads
+```
+
+Sem essas variáveis, o upload até funciona, mas a URL pode apontar para `localhost` ou a imagem some após redeploy.
