@@ -11,7 +11,7 @@ import os
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.session import Base, engine
-from app.db.seed import ensure_extra_categories, seed_database
+from app.db.seed import ensure_default_availability, ensure_extra_categories, seed_database
 from app.db.migrate import run_migrations
 
 app = FastAPI(
@@ -92,6 +92,7 @@ def on_startup():
         run_migrations(engine)
         seed_database()
         ensure_extra_categories()
+        ensure_default_availability()
     except OperationalError as exc:
         db_target = settings.database_url.split("@")[-1] if "@" in settings.database_url else settings.database_url
         logger.error("Falha ao conectar no banco (%s): %s", db_target, exc)

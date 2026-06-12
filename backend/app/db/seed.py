@@ -34,6 +34,24 @@ BABA_SPECS = json.dumps({
 })
 
 
+def ensure_default_availability():
+    """Preenche agenda padrão para profissionais sem horários (cadastros antigos)."""
+    db = SessionLocal()
+    try:
+        professionals = db.query(Professional).all()
+        updated = 0
+        for professional in professionals:
+            weekly = json.loads(professional.availability) if professional.availability else {}
+            has_slots = any(weekly.get(day) for day in weekly if weekly.get(day))
+            if not has_slots:
+                professional.availability = DEFAULT_AVAILABILITY
+                updated += 1
+        if updated:
+            db.commit()
+    finally:
+        db.close()
+
+
 def ensure_extra_categories():
     """Garante que as categorias Diarista e Babá existam."""
     db = SessionLocal()
