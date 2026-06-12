@@ -177,3 +177,25 @@ SUPABASE_STORAGE_BUCKET=zola-uploads
 ```
 
 Sem essas variáveis, o upload até funciona, mas a URL pode apontar para `localhost` ou a imagem some após redeploy.
+
+## Pagamentos no agendamento (Stripe)
+
+Para exigir **sinal** ao reservar um horário (padrão: **30%** do valor, mínimo R$ 25):
+
+1. Crie conta em [Stripe](https://stripe.com) (modo teste para desenvolvimento)
+2. **Developers → API keys** → copie a **Secret key**
+3. **Developers → Webhooks** → endpoint `https://zola-back.onrender.com/api/v1/webhooks/stripe`
+   - Eventos: `checkout.session.completed`, `checkout.session.expired`
+4. No Render:
+
+```txt
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+BOOKING_DEPOSIT_PERCENT=30
+BOOKING_DEPOSIT_MIN_BRL=25
+FRONTEND_ORIGIN=https://seu-front.vercel.app
+```
+
+**Local sem Stripe:** `PAYMENTS_MOCK=true` confirma agendamentos sem cobrança.
+
+Fluxo: cliente escolhe horário → paga sinal no Stripe → webhook confirma → agenda bloqueada. Reservas não pagas expiram em 30 minutos.

@@ -125,4 +125,9 @@ def root():
             "supabase_configured": settings.supabase_storage_configured,
             "public_api_base_url": settings.public_api_base_url,
         },
+        "payments": {
+            "stripe_configured": settings.payments_configured,
+            "deposit_percent": settings.BOOKING_DEPOSIT_PERCENT,
+            "payments_mock": settings.PAYMENTS_MOCK,
+        },
     }

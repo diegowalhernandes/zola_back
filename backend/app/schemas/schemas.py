@@ -226,9 +226,45 @@ class AppointmentOut(BaseModel):
     time_slot: str
     status: str
     notes: str | None = None
+    total_amount: float = 0
+    deposit_amount: float = 0
+    deposit_paid: bool = False
+    payment_status: str = "pending"
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class DepositPreviewOut(BaseModel):
+    total_amount: float
+    deposit_amount: float
+    deposit_percent: float
+    payments_enabled: bool
+
+
+class AppointmentCheckoutOut(BaseModel):
+    appointment_id: int
+    checkout_url: str | None = None
+    deposit_amount: float
+    total_amount: float
+    payments_required: bool
+    status: str
+
+
+class AppointmentListItem(BaseModel):
+    id: int
+    professional_id: int
+    client_id: int
+    appointment_date: date
+    time_slot: str
+    status: str
+    deposit_amount: float
+    deposit_paid: bool
+    payment_status: str
+    notes: str | None = None
+    professional_name: str | None = None
+    client_name: str | None = None
+    created_at: datetime
 
 
 class DayAvailability(BaseModel):

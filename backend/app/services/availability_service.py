@@ -1,12 +1,33 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.models import Appointment, Professional
 from app.schemas.schemas import DayAvailability
+from app.services.booking_service import BLOCKING_STATUSES
 from app.utils.json_fields import loads_json
 
 WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def expire_stale_payment_holds(db: Session) -> None:
+    cutoff = datetime.utcnow() - timedelta(minutes=settings.BOOKING_HOLD_MINUTES)
+    stale = (
+        db.query(Appointment)
+        .filter(
+            Appointment.status == "awaiting_payment",
+            Appointment.created_at < cutoff,
+        )
+        .all()
+    )
+    if not stale:
+        return
+
+    for appointment in stale:
+        appointment.status = "cancelled"
+        appointment.payment_status = "expired"
+    db.commit()
 
 
 def get_day_availability(
@@ -15,6 +36,7 @@ def get_day_availability(
     start: date,
     end: date,
 ) -> list[DayAvailability]:
+    expire_stale_payment_holds(db)
     weekly = loads_json(professional.availability) or {}
     appointments = (
         db.query(Appointment)
@@ -22,7 +44,7 @@ def get_day_availability(
             Appointment.professional_id == professional.id,
             Appointment.appointment_date >= start,
             Appointment.appointment_date <= end,
-            Appointment.status.in_(["pending", "confirmed"]),
+            Appointment.status.in_(BLOCKING_STATUSES),
         )
         .all()
     )

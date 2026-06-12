@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_STORAGE_BUCKET: str = "zola-uploads"
 
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    BOOKING_DEPOSIT_PERCENT: float = 30
+    BOOKING_DEPOSIT_MIN_BRL: float = 25
+    BOOKING_MIN_TOTAL_BRL: float = 50
+    BOOKING_HOLD_MINUTES: int = 30
+    PAYMENTS_MOCK: bool = False
+
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
@@ -56,6 +64,15 @@ class Settings(BaseSettings):
     @property
     def supabase_storage_configured(self) -> bool:
         return bool(self.SUPABASE_URL.strip() and self.SUPABASE_SERVICE_ROLE_KEY.strip())
+
+    @property
+    def payments_configured(self) -> bool:
+        return bool(self.STRIPE_SECRET_KEY.strip())
+
+    @property
+    def frontend_base_url(self) -> str:
+        origin = self.FRONTEND_ORIGIN.split(",")[0].strip().rstrip("/")
+        return origin or "http://localhost:5173"
 
 
 settings = Settings()
