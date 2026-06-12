@@ -51,6 +51,24 @@ def _upload_supabase(filename: str, content: bytes, content_type: str) -> str:
     return f"{base}/storage/v1/object/public/{object_path}"
 
 
+def _ensure_durable_storage() -> None:
+    if settings.supabase_storage_configured:
+        return
+
+    base = settings.public_api_base_url.lower()
+    if "localhost" in base or "127.0.0.1" in base:
+        return
+
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            "Upload indisponível em produção. Configure SUPABASE_URL, "
+            "SUPABASE_SERVICE_ROLE_KEY e SUPABASE_STORAGE_BUCKET no Render "
+            "(bucket público zola-uploads)."
+        ),
+    )
+
+
 def store_uploaded_image(file: UploadFile) -> dict[str, str]:
     content = file.file.read()
     if not content:
@@ -65,6 +83,7 @@ def store_uploaded_image(file: UploadFile) -> dict[str, str]:
     if settings.supabase_storage_configured:
         url = _upload_supabase(filename, content, content_type)
     else:
+        _ensure_durable_storage()
         url = _upload_local(filename, content)
 
     return {"filename": filename, "url": url}

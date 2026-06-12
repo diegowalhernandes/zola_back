@@ -121,4 +121,8 @@ def root():
         "app": "Zola Serviços API",
         "api": settings.API_V1_PREFIX,
         "docs": "/docs",
+        "storage": {
+            "supabase_configured": settings.supabase_storage_configured,
+            "public_api_base_url": settings.public_api_base_url,
+        },
     }

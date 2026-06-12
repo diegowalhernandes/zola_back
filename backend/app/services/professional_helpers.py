@@ -1,9 +1,21 @@
 from app.models.models import Professional
-from app.schemas.schemas import ProfessionalOut
+from app.schemas.schemas import ProfessionalOut, UserPublic
 from app.utils.json_fields import loads_json
+from app.utils.media_url import sanitize_media_url
 
 
 def build_professional_out(professional: Professional) -> ProfessionalOut:
+    user = professional.user
+    safe_user = None
+    if user:
+        safe_user = UserPublic(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            role=user.role,
+            avatar=sanitize_media_url(user.avatar),
+        )
+
     return ProfessionalOut(
         id=professional.id,
         user_id=professional.user_id,
@@ -17,12 +29,12 @@ def build_professional_out(professional: Professional) -> ProfessionalOut:
         reviews_count=professional.reviews_count,
         whatsapp=professional.whatsapp,
         is_featured=professional.is_featured,
-        image=professional.image,
+        image=sanitize_media_url(professional.image),
         latitude=professional.latitude,
         longitude=professional.longitude,
         professional_type=professional.professional_type,
         job_specs=loads_json(professional.job_specs),
         availability=loads_json(professional.availability),
-        user=professional.user,
+        user=safe_user or professional.user,
         category=professional.category,
     )
