@@ -6,8 +6,13 @@ def _column_names(inspector, table: str) -> set[str]:
     return {col["name"] for col in inspector.get_columns(table)}
 
 
+def _bool_default(engine: Engine) -> str:
+    return "FALSE" if engine.dialect.name == "postgresql" else "0"
+
+
 def run_migrations(engine: Engine) -> None:
     inspector = inspect(engine)
+    bool_default = _bool_default(engine)
 
     if "professionals" in inspector.get_table_names():
         columns = _column_names(inspector, "professionals")
@@ -23,7 +28,7 @@ def run_migrations(engine: Engine) -> None:
         with engine.begin() as conn:
             conn.execute(
                 text(
-                    """
+                    f"""
                     CREATE TABLE appointments (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         professional_id INTEGER NOT NULL,
@@ -34,7 +39,7 @@ def run_migrations(engine: Engine) -> None:
                         notes TEXT,
                         total_amount REAL DEFAULT 0,
                         deposit_amount REAL DEFAULT 0,
-                        deposit_paid BOOLEAN DEFAULT 0,
+                        deposit_paid BOOLEAN DEFAULT {bool_default},
                         payment_status VARCHAR(30) DEFAULT 'pending',
                         stripe_checkout_session_id VARCHAR(255),
                         stripe_payment_intent_id VARCHAR(255),
@@ -53,7 +58,9 @@ def run_migrations(engine: Engine) -> None:
             if "deposit_amount" not in columns:
                 conn.execute(text("ALTER TABLE appointments ADD COLUMN deposit_amount REAL DEFAULT 0"))
             if "deposit_paid" not in columns:
-                conn.execute(text("ALTER TABLE appointments ADD COLUMN deposit_paid BOOLEAN DEFAULT 0"))
+                conn.execute(
+                    text(f"ALTER TABLE appointments ADD COLUMN deposit_paid BOOLEAN DEFAULT {bool_default}")
+                )
             if "payment_status" not in columns:
                 conn.execute(text("ALTER TABLE appointments ADD COLUMN payment_status VARCHAR(30) DEFAULT 'pending'"))
             if "stripe_checkout_session_id" not in columns:
