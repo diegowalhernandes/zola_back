@@ -240,6 +240,38 @@ class DepositPreviewOut(BaseModel):
     deposit_amount: float
     deposit_percent: float
     payments_enabled: bool
+    slot_count: int = 1
+
+
+class SlotSelection(BaseModel):
+    appointment_date: date
+    time_slot: str = Field(min_length=4, max_length=10)
+
+
+class BatchCheckoutCreate(BaseModel):
+    professional_id: int
+    slots: list[SlotSelection] = Field(min_length=1, max_length=20)
+    notes: str | None = None
+    payment_mode: str = Field(default="deposit", pattern="^(deposit|full)$")
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def normalize_notes(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return value
+        return normalize_free_text(str(value))
+
+
+class BatchCheckoutOut(BaseModel):
+    batch_id: str
+    appointment_ids: list[int]
+    checkout_url: str | None = None
+    total_amount: float
+    amount_due: float
+    deposit_amount: float
+    payment_mode: str
+    payments_required: bool
+    status: str
 
 
 class AppointmentCheckoutOut(BaseModel):
@@ -258,9 +290,13 @@ class AppointmentListItem(BaseModel):
     appointment_date: date
     time_slot: str
     status: str
-    deposit_amount: float
+    total_amount: float = 0
+    deposit_amount: float = 0
+    amount_due: float = 0
     deposit_paid: bool
     payment_status: str
+    payment_mode: str | None = None
+    batch_id: str | None = None
     notes: str | None = None
     professional_name: str | None = None
     client_name: str | None = None

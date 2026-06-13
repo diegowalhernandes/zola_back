@@ -1,7 +1,8 @@
 from datetime import date, timedelta
+from uuid import uuid4
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, require_professional
@@ -13,23 +14,33 @@ from app.schemas.schemas import (
     AppointmentCreate,
     AppointmentListItem,
     AppointmentOut,
+    BatchCheckoutCreate,
+    BatchCheckoutOut,
     DayAvailability,
     DepositPreviewOut,
+    SlotSelection,
 )
 from app.services.availability_service import expire_stale_payment_holds, get_day_availability
 from app.services.booking_service import require_client, validate_booking_slot
 from app.services.payment_service import (
+    calculate_batch_amounts,
     calculate_booking_amounts,
     cancel_awaiting_payment,
+    cancel_batch_awaiting,
+    create_stripe_batch_checkout,
     create_stripe_checkout,
-    mark_appointment_paid,
     payments_enabled,
 )
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
 
-def _build_list_item(appointment: Appointment, *, professional_name: str | None = None, client_name: str | None = None) -> AppointmentListItem:
+def _build_list_item(
+    appointment: Appointment,
+    *,
+    professional_name: str | None = None,
+    client_name: str | None = None,
+) -> AppointmentListItem:
     return AppointmentListItem(
         id=appointment.id,
         professional_id=appointment.professional_id,
@@ -37,9 +48,13 @@ def _build_list_item(appointment: Appointment, *, professional_name: str | None 
         appointment_date=appointment.appointment_date,
         time_slot=appointment.time_slot,
         status=appointment.status,
+        total_amount=appointment.total_amount,
         deposit_amount=appointment.deposit_amount,
+        amount_due=appointment.amount_due,
         deposit_paid=appointment.deposit_paid,
         payment_status=appointment.payment_status,
+        payment_mode=appointment.payment_mode,
+        batch_id=appointment.batch_id,
         notes=appointment.notes,
         professional_name=professional_name,
         client_name=client_name,
@@ -66,12 +81,16 @@ def list_availability(
 
 
 @router.get("/deposit-preview/{professional_id}", response_model=DepositPreviewOut)
-def deposit_preview(professional_id: int, db: Session = Depends(get_db)):
+def deposit_preview(
+    professional_id: int,
+    slots: int = Query(1, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
     professional = db.get(Professional, professional_id)
     if not professional:
         raise HTTPException(status_code=404, detail="Profissional não encontrado")
 
-    total_amount, deposit_amount = calculate_booking_amounts(professional.price_from)
+    total_amount, deposit_amount, _ = calculate_batch_amounts(professional.price_from, slots, "deposit")
     enabled = payments_enabled() and not settings.PAYMENTS_MOCK
 
     return DepositPreviewOut(
@@ -79,12 +98,13 @@ def deposit_preview(professional_id: int, db: Session = Depends(get_db)):
         deposit_amount=deposit_amount,
         deposit_percent=settings.BOOKING_DEPOSIT_PERCENT,
         payments_enabled=enabled,
+        slot_count=slots,
     )
 
 
-@router.post("/checkout", response_model=AppointmentCheckoutOut)
-def checkout_appointment(
-    data: AppointmentCreate,
+@router.post("/checkout-batch", response_model=BatchCheckoutOut)
+def checkout_batch(
+    data: BatchCheckoutCreate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -100,59 +120,130 @@ def checkout_appointment(
         raise HTTPException(status_code=404, detail="Profissional não encontrado")
 
     expire_stale_payment_holds(db)
-    validate_booking_slot(db, professional, data.appointment_date, data.time_slot)
 
-    total_amount, deposit_amount = calculate_booking_amounts(professional.price_from)
-    use_payments = payments_enabled() and not settings.PAYMENTS_MOCK
+    seen: set[tuple[date, str]] = set()
+    for slot in data.slots:
+        key = (slot.appointment_date, slot.time_slot)
+        if key in seen:
+            raise HTTPException(status_code=400, detail="Horário duplicado na solicitação")
+        seen.add(key)
+        validate_booking_slot(db, professional, slot.appointment_date, slot.time_slot)
 
-    appointment = Appointment(
-        professional_id=data.professional_id,
-        client_id=user.id,
-        appointment_date=data.appointment_date,
-        time_slot=data.time_slot,
-        notes=data.notes,
-        status="awaiting_payment" if use_payments else "confirmed",
-        total_amount=total_amount,
-        deposit_amount=deposit_amount,
-        deposit_paid=not use_payments,
-        payment_status="pending" if use_payments else "paid",
+    unit_total, unit_deposit = calculate_booking_amounts(professional.price_from)
+    total_amount, deposit_amount, amount_due = calculate_batch_amounts(
+        professional.price_from,
+        len(data.slots),
+        data.payment_mode,
     )
-    db.add(appointment)
+    use_payments = payments_enabled() and not settings.PAYMENTS_MOCK
+    batch_id = str(uuid4())
+    per_slot_due = round(amount_due / len(data.slots), 2)
+
+    appointments: list[Appointment] = []
+    for slot in data.slots:
+        appointment = Appointment(
+            professional_id=data.professional_id,
+            client_id=user.id,
+            appointment_date=slot.appointment_date,
+            time_slot=slot.time_slot,
+            notes=data.notes,
+            status="awaiting_payment" if use_payments else "confirmed",
+            total_amount=unit_total,
+            deposit_amount=unit_deposit,
+            amount_due=per_slot_due,
+            deposit_paid=not use_payments,
+            payment_status="pending" if use_payments else "paid",
+            payment_mode=data.payment_mode,
+            batch_id=batch_id,
+        )
+        db.add(appointment)
+        appointments.append(appointment)
+
     db.commit()
-    db.refresh(appointment)
+    for appointment in appointments:
+        db.refresh(appointment)
 
     if not use_payments:
-        return AppointmentCheckoutOut(
-            appointment_id=appointment.id,
+        return BatchCheckoutOut(
+            batch_id=batch_id,
+            appointment_ids=[item.id for item in appointments],
             checkout_url=None,
-            deposit_amount=deposit_amount,
             total_amount=total_amount,
+            amount_due=amount_due,
+            deposit_amount=deposit_amount,
+            payment_mode=data.payment_mode,
             payments_required=False,
-            status=appointment.status,
+            status="confirmed",
         )
 
     try:
-        session = create_stripe_checkout(
-            appointment=appointment,
+        session = create_stripe_batch_checkout(
+            appointments=appointments,
             professional=professional,
             client=user,
+            amount_due=amount_due,
+            payment_mode=data.payment_mode,
+            batch_id=batch_id,
         )
     except stripe.StripeError as exc:
-        db.delete(appointment)
+        for appointment in appointments:
+            db.delete(appointment)
         db.commit()
         raise HTTPException(status_code=502, detail=f"Falha ao iniciar pagamento: {exc.user_message or str(exc)}") from exc
 
-    appointment.stripe_checkout_session_id = session.id
+    for appointment in appointments:
+        appointment.stripe_checkout_session_id = session.id
     db.commit()
 
-    return AppointmentCheckoutOut(
-        appointment_id=appointment.id,
+    return BatchCheckoutOut(
+        batch_id=batch_id,
+        appointment_ids=[item.id for item in appointments],
         checkout_url=session.url,
-        deposit_amount=deposit_amount,
         total_amount=total_amount,
+        amount_due=amount_due,
+        deposit_amount=deposit_amount,
+        payment_mode=data.payment_mode,
         payments_required=True,
-        status=appointment.status,
+        status="awaiting_payment",
     )
+
+
+@router.post("/checkout", response_model=AppointmentCheckoutOut)
+def checkout_appointment(
+    data: AppointmentCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    batch = checkout_batch(
+        BatchCheckoutCreate(
+            professional_id=data.professional_id,
+            slots=[SlotSelection(appointment_date=data.appointment_date, time_slot=data.time_slot)],
+            notes=data.notes,
+            payment_mode="deposit",
+        ),
+        user,
+        db,
+    )
+    return AppointmentCheckoutOut(
+        appointment_id=batch.appointment_ids[0],
+        checkout_url=batch.checkout_url,
+        deposit_amount=batch.deposit_amount,
+        total_amount=batch.total_amount,
+        payments_required=batch.payments_required,
+        status=batch.status,
+    )
+
+
+@router.post("/batch/{batch_id}/cancel-awaiting")
+def cancel_batch(
+    batch_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    cancelled = cancel_batch_awaiting(db, batch_id, user.id)
+    if cancelled == 0 and user.role != "admin":
+        raise HTTPException(status_code=404, detail="Reserva não encontrada ou já finalizada")
+    return {"ok": True, "cancelled": cancelled}
 
 
 @router.post("/{appointment_id}/cancel-awaiting")
@@ -169,8 +260,11 @@ def cancel_awaiting(
     if appointment.status != "awaiting_payment":
         raise HTTPException(status_code=400, detail="Agendamento não está aguardando pagamento")
 
-    cancel_awaiting_payment(db, appointment)
-    return {"ok": True, "status": appointment.status}
+    if appointment.batch_id:
+        cancel_batch_awaiting(db, appointment.batch_id, user.id)
+    else:
+        cancel_awaiting_payment(db, appointment)
+    return {"ok": True, "status": "cancelled"}
 
 
 @router.get("/me", response_model=list[AppointmentListItem])
@@ -213,8 +307,7 @@ def list_incoming_appointments(
         .options(joinedload(Appointment.professional))
         .filter(
             Appointment.professional_id == professional.id,
-            Appointment.status.in_(["confirmed", "pending"]),
-            Appointment.deposit_paid.is_(True),
+            Appointment.status.in_(["confirmed", "awaiting_payment"]),
         )
         .order_by(Appointment.appointment_date.asc(), Appointment.time_slot.asc())
         .all()

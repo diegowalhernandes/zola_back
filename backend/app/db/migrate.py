@@ -67,3 +67,9 @@ def run_migrations(engine: Engine) -> None:
                 conn.execute(text("ALTER TABLE appointments ADD COLUMN stripe_checkout_session_id VARCHAR(255)"))
             if "stripe_payment_intent_id" not in columns:
                 conn.execute(text("ALTER TABLE appointments ADD COLUMN stripe_payment_intent_id VARCHAR(255)"))
+            if "batch_id" not in columns:
+                conn.execute(text("ALTER TABLE appointments ADD COLUMN batch_id VARCHAR(64)"))
+            if "payment_mode" not in columns:
+                conn.execute(text("ALTER TABLE appointments ADD COLUMN payment_mode VARCHAR(20) DEFAULT 'deposit'"))
+            if "amount_due" not in columns:
+                conn.execute(text("ALTER TABLE appointments ADD COLUMN amount_due REAL DEFAULT 0"))

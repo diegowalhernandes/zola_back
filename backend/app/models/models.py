@@ -73,6 +73,9 @@ class Appointment(Base):
     payment_status: Mapped[str] = mapped_column(String(30), default="pending")
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    batch_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    payment_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    amount_due: Mapped[float] = mapped_column(Float, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     professional = relationship("Professional", back_populates="appointments")
