@@ -50,11 +50,24 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     if payload.role == "professional" and not payload.professional_type:
         raise HTTPException(status_code=400, detail="Informe o tipo: diarista ou babá.")
 
+    document_exists = (
+        db.query(User)
+        .filter(
+            User.document_type == payload.document_type,
+            User.document_number == payload.document_number,
+        )
+        .first()
+    )
+    if document_exists:
+        raise HTTPException(status_code=400, detail="Este documento já está cadastrado na plataforma.")
+
     user = User(
         name=payload.name,
         email=payload.email,
         password_hash=hash_password(payload.password),
         role=payload.role,
+        document_type=payload.document_type,
+        document_number=payload.document_number,
     )
 
     db.add(user)

@@ -1,17 +1,20 @@
 from datetime import date, datetime
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("document_type", "document_number", name="uq_users_document"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(180), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(30), default="client")  # client | professional | admin
+    document_type: Mapped[str | None] = mapped_column(String(10), nullable=True)  # cpf | passport
+    document_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

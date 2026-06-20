@@ -11,6 +11,7 @@ from app.utils.text_normalize import (
     normalize_professional_type,
     normalize_state,
 )
+from app.utils.document_validation import validate_document
 
 
 class Token(BaseModel):
@@ -34,6 +35,8 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     role: str = Field(pattern="^(client|professional)$", default="client")
+    document_type: str = Field(pattern="^(cpf|passport)$")
+    document_number: str = Field(min_length=6, max_length=20)
     professional_type: str | None = Field(default=None, pattern="^(diarista|baba)$")
     category_id: int | None = None
     city: str | None = None
@@ -52,6 +55,20 @@ class UserCreate(BaseModel):
     @classmethod
     def normalize_user_name(cls, value: str) -> str:
         return normalize_name(str(value))
+
+    @field_validator("document_type", mode="before")
+    @classmethod
+    def normalize_document_type(cls, value: str) -> str:
+        return str(value).strip().lower()
+
+    @field_validator("document_number", mode="before")
+    @classmethod
+    def normalize_document_number(cls, value: str, info) -> str:
+        document_type = info.data.get("document_type", "cpf")
+        try:
+            return validate_document(str(document_type), str(value))
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
 
     @field_validator("professional_type", mode="before")
     @classmethod

@@ -14,6 +14,14 @@ def run_migrations(engine: Engine) -> None:
     inspector = inspect(engine)
     bool_default = _bool_default(engine)
 
+    if "users" in inspector.get_table_names():
+        columns = _column_names(inspector, "users")
+        with engine.begin() as conn:
+            if "document_type" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN document_type VARCHAR(10)"))
+            if "document_number" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN document_number VARCHAR(20)"))
+
     if "professionals" in inspector.get_table_names():
         columns = _column_names(inspector, "professionals")
         with engine.begin() as conn:
