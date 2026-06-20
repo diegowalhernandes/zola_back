@@ -3,16 +3,16 @@ import json
 from app.core.security import hash_password
 from app.db.session import Base, SessionLocal, engine
 from app.models.models import Category, Message, Professional, Review, ServiceRequest, User
+from app.services.slot_rules import (
+    BABA_DEFAULT_AVAILABILITY,
+    DIARISTA_DEFAULT_AVAILABILITY,
+    default_availability,
+    normalize_weekly_availability,
+)
+from app.utils.json_fields import dumps_json, loads_json
 
-DEFAULT_AVAILABILITY = json.dumps({
-    "monday": ["08:00", "09:00", "14:00"],
-    "tuesday": ["08:00", "09:00", "14:00"],
-    "wednesday": ["08:00", "14:00"],
-    "thursday": ["08:00", "09:00", "14:00"],
-    "friday": ["08:00", "14:00"],
-    "saturday": ["09:00", "10:00"],
-    "sunday": [],
-})
+BABA_DEFAULT_AVAILABILITY_JSON = json.dumps(BABA_DEFAULT_AVAILABILITY)
+DIARISTA_DEFAULT_AVAILABILITY_JSON = json.dumps(DIARISTA_DEFAULT_AVAILABILITY)
 
 DIARISTA_SPECS = json.dumps({
     "tipo_limpeza": "residencial",
@@ -35,16 +35,22 @@ BABA_SPECS = json.dumps({
 
 
 def ensure_default_availability():
-    """Preenche agenda padrão para profissionais sem horários (cadastros antigos)."""
+    """Preenche ou normaliza agenda conforme o tipo do profissional."""
     db = SessionLocal()
     try:
         professionals = db.query(Professional).all()
         updated = 0
         for professional in professionals:
-            weekly = json.loads(professional.availability) if professional.availability else {}
+            weekly = loads_json(professional.availability) or {}
             has_slots = any(weekly.get(day) for day in weekly if weekly.get(day))
             if not has_slots:
-                professional.availability = DEFAULT_AVAILABILITY
+                professional.availability = dumps_json(default_availability(professional.professional_type))
+                updated += 1
+                continue
+
+            normalized = normalize_weekly_availability(weekly, professional.professional_type)
+            if normalized != weekly:
+                professional.availability = dumps_json(normalized)
                 updated += 1
         if updated:
             db.commit()
@@ -104,7 +110,7 @@ def seed_database():
                 image="https://images.unsplash.com/photo-1581578731548-c64695cc6952",
                 professional_type="diarista",
                 job_specs=DIARISTA_SPECS,
-                availability=DEFAULT_AVAILABILITY,
+                availability=DIARISTA_DEFAULT_AVAILABILITY_JSON,
             ),
             Professional(
                 user_id=pro_baba.id,
@@ -121,7 +127,7 @@ def seed_database():
                 image="https://images.unsplash.com/photo-1584515933487-779824ad3d8f",
                 professional_type="baba",
                 job_specs=BABA_SPECS,
-                availability=DEFAULT_AVAILABILITY,
+                availability=BABA_DEFAULT_AVAILABILITY_JSON,
             ),
         ]
         db.add_all(profs)

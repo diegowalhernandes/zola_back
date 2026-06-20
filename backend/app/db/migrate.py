@@ -73,3 +73,7 @@ def run_migrations(engine: Engine) -> None:
                 conn.execute(text("ALTER TABLE appointments ADD COLUMN payment_mode VARCHAR(20) DEFAULT 'deposit'"))
             if "amount_due" not in columns:
                 conn.execute(text("ALTER TABLE appointments ADD COLUMN amount_due REAL DEFAULT 0"))
+
+            # Suporta turnos de diarista (ex.: dia_inteiro)
+            if engine.dialect.name == "postgresql":
+                conn.execute(text("ALTER TABLE appointments ALTER COLUMN time_slot TYPE VARCHAR(20)"))

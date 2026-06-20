@@ -207,7 +207,7 @@ class ProfessionalUpdate(BaseModel):
 class AppointmentCreate(BaseModel):
     professional_id: int
     appointment_date: date
-    time_slot: str = Field(min_length=4, max_length=10)
+    time_slot: str = Field(min_length=4, max_length=20)
     notes: str | None = None
 
     @field_validator("notes", mode="before")
@@ -245,7 +245,7 @@ class DepositPreviewOut(BaseModel):
 
 class SlotSelection(BaseModel):
     appointment_date: date
-    time_slot: str = Field(min_length=4, max_length=10)
+    time_slot: str = Field(min_length=4, max_length=20)
 
 
 class BatchCheckoutCreate(BaseModel):

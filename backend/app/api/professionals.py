@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.models import Professional, User
 from app.schemas.schemas import ProfessionalCreate, ProfessionalOut, ProfessionalUpdate
 from app.services.professional_helpers import build_professional_out
+from app.services.slot_rules import normalize_weekly_availability
 from app.utils.json_fields import dumps_json
 
 router = APIRouter(prefix="/professionals", tags=["Professionals"])
@@ -16,7 +17,9 @@ def _apply_update(professional: Professional, data: ProfessionalUpdate) -> None:
     if "job_specs" in payload:
         payload["job_specs"] = dumps_json(payload["job_specs"])
     if "availability" in payload:
-        payload["availability"] = dumps_json(payload["availability"])
+        payload["availability"] = dumps_json(
+            normalize_weekly_availability(payload["availability"], professional.professional_type)
+        )
     for key, value in payload.items():
         setattr(professional, key, value)
 

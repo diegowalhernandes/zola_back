@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.slot_rules import format_slot_label
 from app.models.models import Appointment, Professional, User
 
 
@@ -72,7 +73,8 @@ def create_stripe_batch_checkout(
     slot_count = len(appointments)
     payment_label = "pagamento integral" if payment_mode == "full" else f"sinal ({int(settings.BOOKING_DEPOSIT_PERCENT)}%)"
     slots_summary = ", ".join(
-        f"{item.appointment_date.strftime('%d/%m')} {item.time_slot}" for item in appointments[:3]
+        f"{item.appointment_date.strftime('%d/%m')} {format_slot_label(item.time_slot, professional.professional_type)}"
+        for item in appointments[:3]
     )
     if slot_count > 3:
         slots_summary += f" +{slot_count - 3}"

@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.models.models import Appointment, Professional
 from app.schemas.schemas import DayAvailability
 from app.services.booking_service import BLOCKING_STATUSES
+from app.services.slot_rules import free_diarista_slots, is_diarista
 from app.utils.json_fields import loads_json
 
 WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -60,7 +61,10 @@ def get_day_availability(
         weekday_key = WEEKDAY_KEYS[current.weekday()]
         base_slots = weekly.get(weekday_key, [])
         taken = booked.get(current.isoformat(), set())
-        free_slots = [slot for slot in base_slots if slot not in taken]
+        if is_diarista(professional.professional_type):
+            free_slots = free_diarista_slots(base_slots, taken)
+        else:
+            free_slots = [slot for slot in base_slots if slot not in taken]
         if free_slots:
             result.append(DayAvailability(date=current, slots=free_slots))
         current += timedelta(days=1)

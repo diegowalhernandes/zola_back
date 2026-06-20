@@ -21,7 +21,7 @@ from app.schemas.schemas import (
     SlotSelection,
 )
 from app.services.availability_service import expire_stale_payment_holds, get_day_availability
-from app.services.booking_service import require_client, validate_booking_slot
+from app.services.booking_service import require_client, validate_booking_batch, validate_booking_slot
 from app.services.payment_service import (
     calculate_batch_amounts,
     calculate_booking_amounts,
@@ -120,6 +120,11 @@ def checkout_batch(
         raise HTTPException(status_code=404, detail="Profissional não encontrado")
 
     expire_stale_payment_holds(db)
+
+    validate_booking_batch(
+        professional,
+        [(slot.appointment_date, slot.time_slot) for slot in data.slots],
+    )
 
     seen: set[tuple[date, str]] = set()
     for slot in data.slots:

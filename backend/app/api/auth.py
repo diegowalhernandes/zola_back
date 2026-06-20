@@ -6,18 +6,9 @@ from app.models.models import Category, Professional, User
 from app.schemas.schemas import LoginInput, Token, UserCreate
 from app.core.security import hash_password, verify_password, create_access_token
 from app.utils.json_fields import dumps_json
+from app.services.slot_rules import default_availability
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
-DEFAULT_AVAILABILITY = {
-    "monday": ["08:00", "09:00", "14:00"],
-    "tuesday": ["08:00", "09:00", "14:00"],
-    "wednesday": ["08:00", "14:00"],
-    "thursday": ["08:00", "09:00", "14:00"],
-    "friday": ["08:00", "14:00"],
-    "saturday": ["09:00", "10:00"],
-    "sunday": [],
-}
 
 TYPE_CATEGORY_NAMES = {
     "diarista": "Diarista",
@@ -91,7 +82,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             latitude=None,
             longitude=None,
             job_specs=dumps_json(payload.job_specs or {}),
-            availability=dumps_json(DEFAULT_AVAILABILITY),
+            availability=dumps_json(default_availability(payload.professional_type)),
         )
 
         db.add(professional)
